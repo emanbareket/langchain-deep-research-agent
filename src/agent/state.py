@@ -36,7 +36,7 @@ class AgentState(TypedDict):
     """LLM-generated plan with sub-questions to investigate."""
 
     findings: str
-    """Rolling compressed summary of research findings."""
+    """Accumulated research findings, sometimes compressed to stay within context budget."""
 
     iteration: int
     """Current search-loop iteration (0-indexed)."""
@@ -46,3 +46,6 @@ class AgentState(TypedDict):
 
     next_queries: list[str]
     """Queries pending execution — set by PLAN/REFLECT, consumed by SEARCH."""
+
+    comprehension_score: int
+    """0-100 score from REFLECT indicating how well findings cover the query."""

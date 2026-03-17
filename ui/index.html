@@ -78,6 +78,37 @@
     button:hover { opacity: 0.85; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* Config */
+    .config-row {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .config-row label { display: flex; align-items: center; gap: 0.4rem; }
+    .config-row input[type="number"] {
+      width: 56px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.3rem 0.5rem;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .config-row input:focus { outline: none; border-color: var(--accent); }
+    .config-row select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.3rem 0.5rem;
+      font-size: 0.85rem;
+    }
+    .config-row select:focus { outline: none; border-color: var(--accent); }
+    .config-row .pct { color: var(--muted); }
+
     /* Progress */
     .progress {
       display: none;
@@ -126,6 +157,54 @@
       margin-top: 0.6rem;
       font-size: 0.8rem;
       color: var(--yellow);
+    }
+    .status-info {
+      margin-top: 0.8rem;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+    .query-list {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .query-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.65rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .query-item.done {
+      opacity: 0.75;
+      border-color: #27402a;
+    }
+    .query-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--accent-dim);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-top: 0.15rem;
+      flex-shrink: 0;
+    }
+    .query-item.done .query-spinner {
+      animation: none;
+      border: none;
+      width: 12px;
+      height: 12px;
+      margin-top: 0.05rem;
+      color: var(--green);
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
 
     /* Report */
@@ -188,6 +267,17 @@
     <button id="run-btn" onclick="runResearch()">Research</button>
   </div>
 
+  <div class="config-row">
+    <label>Max iterations <input type="number" id="max-iter" value="3" min="1" max="10"></label>
+    <label>Comprehension threshold <input type="number" id="comp-thresh" value="90" min="0" max="100"><span class="pct">%</span></label>
+    <label>Report style
+      <select id="report-style">
+        <option value="detailed" selected>Detailed (~2000-4000 words)</option>
+        <option value="brief">Brief (~500-1000 words)</option>
+      </select>
+    </label>
+  </div>
+
   <div class="error" id="error"></div>
 
   <div class="progress" id="progress">
@@ -200,6 +290,9 @@
       <span class="node-badge" data-node="write">Write</span>
     </div>
     <div class="iteration-info" id="iteration-info"></div>
+    <div class="iteration-info" id="score-info"></div>
+    <div class="status-info" id="status-info"></div>
+    <div class="query-list" id="query-list"></div>
   </div>
 
   <div class="report" id="report"></div>
@@ -215,6 +308,9 @@ async function runResearch() {
   const reportEl = document.getElementById("report");
   const errorEl = document.getElementById("error");
   const iterInfo = document.getElementById("iteration-info");
+  const scoreInfo = document.getElementById("score-info");
+  const statusInfo = document.getElementById("status-info");
+  const queryList = document.getElementById("query-list");
 
   // Reset UI
   btn.disabled = true;
@@ -224,27 +320,62 @@ async function runResearch() {
   reportEl.innerHTML = "";
   progress.classList.add("active");
   iterInfo.textContent = "";
+  scoreInfo.textContent = "";
+  statusInfo.textContent = "";
+  queryList.innerHTML = "";
   document.querySelectorAll(".node-badge").forEach(b => b.className = "node-badge");
 
   const completedNodes = new Set();
+  let currentNode = null;
+  let activeQueries = [];
+  let searchesInFlight = false;
+
+  function renderQueries() {
+    queryList.innerHTML = "";
+    if (!activeQueries.length) return;
+
+    activeQueries.forEach(q => {
+      const item = document.createElement("div");
+      item.className = `query-item${searchesInFlight ? "" : " done"}`;
+
+      const icon = document.createElement("div");
+      icon.className = "query-spinner";
+      icon.textContent = searchesInFlight ? "" : "✓";
+
+      const text = document.createElement("div");
+      text.textContent = q;
+
+      item.appendChild(icon);
+      item.appendChild(text);
+      queryList.appendChild(item);
+    });
+  }
 
   function markNode(name) {
-    completedNodes.forEach(n => {
-      const b = document.querySelector(`[data-node="${n}"]`);
-      if (b) b.className = "node-badge done";
+    if (currentNode && currentNode !== name) completedNodes.add(currentNode);
+    currentNode = name;
+
+    document.querySelectorAll(".node-badge").forEach(badge => {
+      const nodeName = badge.dataset.node;
+      badge.className = "node-badge";
+      if (nodeName === currentNode) {
+        badge.classList.add("active");
+      } else if (completedNodes.has(nodeName)) {
+        badge.classList.add("done");
+      }
     });
-    const badge = document.querySelector(`[data-node="${name}"]`);
-    if (badge) {
-      badge.className = "node-badge active";
-      completedNodes.add(name);
-    }
   }
 
   try {
     const res = await fetch("/api/research", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({
+        query,
+        max_iterations: parseInt(document.getElementById("max-iter").value) || 3,
+        comprehension_threshold: parseInt(document.getElementById("comp-thresh").value) || 90,
+        report_style: document.getElementById("report-style").value,
+      }),
     });
 
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -266,17 +397,31 @@ async function runResearch() {
         if (!line.startsWith("data: ")) continue;
         try {
           const data = JSON.parse(line.slice(6));
-          if (data.node) markNode(data.node);
+          if (data.active_node) {
+            markNode(data.active_node);
+          } else if (data.node && !currentNode) {
+            markNode(data.node);
+          }
           if (data.iteration) iterInfo.textContent = `Research iteration ${data.iteration}`;
+          if (data.score != null) scoreInfo.textContent = `Comprehension: ${data.score}%`;
+          if (data.status) statusInfo.textContent = data.status;
+          if (Array.isArray(data.pending_queries)) {
+            activeQueries = data.pending_queries;
+            searchesInFlight = activeQueries.length > 0;
+            renderQueries();
+          }
+          if (data.search_complete) {
+            searchesInFlight = false;
+            renderQueries();
+          }
           if (data.report) finalReport = data.report;
         } catch (e) { /* skip */ }
       }
     }
 
     // Mark all done
-    completedNodes.forEach(n => {
-      const b = document.querySelector(`[data-node="${n}"]`);
-      if (b) b.className = "node-badge done";
+    document.querySelectorAll(".node-badge").forEach(badge => {
+      badge.className = "node-badge done";
     });
 
     if (finalReport) {
