@@ -26,6 +26,16 @@ What this does:
 - prompts for your OpenAI and Tavily API keys if `.env` is missing or incomplete
 - starts the local UI at `http://127.0.0.1:8123`
 
+## Configurable Options
+
+The local UI lets you configure:
+
+- `Max iterations`: the maximum number of research loops before the agent stops searching and writes the report
+- `Comprehension threshold`: the score the agent tries to reach before it stops researching and moves to the final report
+- `Report style`:
+  - `Brief`: shorter final report, targeted at roughly 500-1000 words
+  - `Detailed`: longer final report, targeted at roughly 2000-4000 words
+
 ## LangSmith Studio
 
 If you want to inspect the graph in LangSmith Studio / `langgraph dev`, run:
