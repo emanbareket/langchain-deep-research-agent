@@ -1,0 +1,23 @@
+[project]
+name = "deep-research-agent"
+version = "0.1.0"
+description = "A deep research agent built with LangGraph"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.4",
+    "langchain>=0.3",
+    "langchain-openai>=0.3",
+    "langchain-anthropic>=0.3",
+    "langchain-community>=0.3",
+    "tavily-python>=0.5",
+    "python-dotenv>=1.0",
+    "pydantic>=2.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+]
