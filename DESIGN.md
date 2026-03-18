@@ -53,4 +53,24 @@ Decision: I'll call the search tools directly instead letting the llm do it. The
         - Hard coding might produce duplicate findings
     - Decision: I'll hard code this in, I would rather have duplicate findings than lose important information. Write step will deduplicate anyways. 
 
+# Post final version explanations #
 
+- I wanted the agent to be able to continue researching without limitations, so it could actually conduct proper deep research.
+
+- To do this, I implemented dynamic context compression. 
+    - It keeps track of all search results until they surpass a certain context length limit that I defined.
+    - At each reflect score, it goes over all findings and gives a comprehension score out of 100
+    - When the findings surpass the threshold, it calculates a compression ratio based on the target comprehension score inputted at the start of the search by the user (default 90)
+    - It then compresses the current context to size that is that ratio of the context limit
+    - The idea is that if it is at 60%, and target is 90%, we have about 2/3 of the total data we are going to have for the final report, so it should take up 2/3 of the max context window.
+    - I found this to maintain high quality reports, without any information loss, while also managing context perfectly
+
+- I also included an option for a brief report that uses a mini model for improved speed. 
+
+# Future improvements I didn't have time for #
+
+- with more time, I would definitely implement human in the loop both at the beginning of the research and at the end. 
+    - during the plan phase, I could have the agent present its research plan to the user, and the user can give feedback to perfect it before  deep research starts
+    - I can also save all of the data from the research process at the end, and after generating the final report, ask the user if there are any areas that require further research. If so, I can have the agent continue researching with all of the current data already in place, so it doesn't have to start from scratch
+
+- Another thing I wanted to add but did not have time was image generation in the report. would have been really cool, but I just didn't get to it and wanted to focus on how deep I can have the agent efficiently research.
